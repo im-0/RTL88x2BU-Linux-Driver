@@ -1873,8 +1873,8 @@ static const struct net_device_ops rtw_netdev_ops = {
 
 int rtw_init_netdev_name(struct net_device *pnetdev, const char *ifname)
 {
-#ifdef CONFIG_EASY_REPLACEMENT
 	_adapter *padapter = rtw_netdev_priv(pnetdev);
+#ifdef CONFIG_EASY_REPLACEMENT
 	struct net_device	*TargetNetdev = NULL;
 	_adapter			*TargetAdapter = NULL;
 
@@ -1897,8 +1897,14 @@ int rtw_init_netdev_name(struct net_device *pnetdev, const char *ifname)
 	}
 #endif /* CONFIG_EASY_REPLACEMENT */
 
-	if (dev_alloc_name(pnetdev, ifname) < 0)
-		RTW_ERR("dev_alloc_name, fail!\n");
+	if (rtw_rtnl_lock_needed(adapter_to_dvobj(padapter))) {
+		/* register_netdev() will allocate the name under RTNL. */
+		STRSCPY(pnetdev->name, ifname, IFNAMSIZ);
+	} else {
+		/* Caller already holds RTNL; allocate before register_netdevice(). */
+		if (dev_alloc_name(pnetdev, ifname) < 0)
+			RTW_ERR("dev_alloc_name, fail!\n");
+	}
 
 	rtw_netif_carrier_off(pnetdev);
 	/* rtw_netif_stop_queue(pnetdev); */
